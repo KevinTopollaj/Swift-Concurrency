@@ -36,8 +36,8 @@
 
 - Either way work will start in the order it was added to the queue unless we specifically say something has a high or low priority.
 
-- Sometimes serial queues are required to ensure our data is safe, because it stops you from trying to read the data at the same time some other part of your program is trying to write new data.
+- Sometimes `serial queues` are required to ensure our data is safe, because it stops you from trying to read the data at the same time some other part of your program is trying to write new data.
 
-- Threads are the individual slices of a program that do pieces of work.
+- `Threads` are the individual slices of a program that do pieces of work.
 
-- Queues are like pipelines of execution where we can request that work can be done at some point.
+- `Queues` are like pipelines of execution where we can request that work can be done at some point.
