@@ -5,6 +5,10 @@
 * [Concurrency vs parallelism](#Concurrency-vs-parallelism)
 * [Understanding threads and queues](#Understanding-threads-and-queues)
 * [Main thread and main queue](#Main-thread-and-main-queue)
+* [Where is Swift concurrency supported?](#Where-is-Swift-concurrency-supported?)
+
+
+# Introduction
 
 
 ## Concurrency vs parallelism
@@ -53,5 +57,21 @@
 - If you’re on the `main queue` then you’re definitely on the `main thread`.
 
 - Being on the `main thread` doesn’t automatically mean you’re on the `main queue`, a different queue could temporarily be running on the `main thread`.
+
+
+## Where is Swift concurrency supported?
+
+- When it was originally announced, Swift concurrency required at least `iOS 15`, macOS 12, watchOS 8, tvOS 15, or on other platforms at least `Swift 5.5`.
+
+- If you’re building your code using `Xcode 13.2` or later you can back deploy to older versions of each of those operating systems: `iOS 13`, macOS 10.15, watchOS 6, and tvOS 13 are all supported. 
+
+- This offers the full range of Swift functionality, including `actors`, `async/await`, the `task APIs`, and more.
+
+- This backwards compatibility applies only to Swift language features, not to any APIs built using those language features.
+
+- If you are keen to use the newer APIs in your project while also preserving backwards compatibility for older OS releases, your best bet is to `add a runtime version check for iOS 15` then wrap the older APIs with `continuations`.
+
+- This kind of hybrid solution allows you to keep using `async/await` elsewhere in your project – you get all the benefits of concurrency for the vast majority of your code, while keeping your backwards deployment shims neatly organized in one place so they can be removed in a year or two.
+
 
 
