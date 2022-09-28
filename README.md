@@ -7,11 +7,11 @@
 * [Concurrency vs parallelism](#Concurrency-vs-parallelism)
 * [Understanding threads and queues](#Understanding-threads-and-queues)
 * [Main thread and main queue](#Main-thread-and-main-queue)
-* [Where is Swift concurrency supported?](#Where-is-Swift-concurrency-supported?)
+* [Where is Swift concurrency supported?](#Where-is-Swift-concurrency-supported)
 
 - Async/await
 
-* [What is a synchronous function?](#What-is-a-synchronous-function?)
+* [What is a synchronous function?](#What-is-a-synchronous-function)
 
 
 
