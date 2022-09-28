@@ -2,10 +2,17 @@
 
 ## Table of contents
 
+- Introduction
+
 * [Concurrency vs parallelism](#Concurrency-vs-parallelism)
 * [Understanding threads and queues](#Understanding-threads-and-queues)
 * [Main thread and main queue](#Main-thread-and-main-queue)
 * [Where is Swift concurrency supported?](#Where-is-Swift-concurrency-supported?)
+
+- Async/await
+
+* [What is a synchronous function?](#What-is-a-synchronous-function?)
+
 
 
 # Introduction
@@ -73,5 +80,34 @@
 
 - This kind of hybrid solution allows you to keep using `async/await` elsewhere in your project – you get all the benefits of concurrency for the vast majority of your code, while keeping your backwards deployment shims neatly organized in one place so they can be removed in a year or two.
 
+
+# Async/await
+
+
+## What is a synchronous function?
+
+- By default, all Swift functions are `synchronous`.
+
+- A `synchronous` function is one that executes all its work in a simple, straight line on a single thread.
+
+- `synchronous` functions are very easy to think about: when you call function A, it will carry on working until all its work is done, then return a value.
+
+- If while working, function A calls function B, and perhaps functions C, D, and E as well, it doesn’t matter – `they all will execute on the same thread`, and run one by one until the work completes.
+
+- Internally this is handled as a `function stack`: whenever one function calls another, the system creates what’s called a `stack frame` to store all the data required for that new function – that’s things like its local variables, for example. 
+
+- That new `stack frame` gets pushed on top of the previous one, like a stack of Lego bricks, and if that function calls a third function then another `stack frame` is created and added above the others. 
+
+- Eventually the functions finish, and their `stack frame` is removed and destroyed in a process we call `popping`, and control goes back to whichever function the code was called from.
+
+- `Synchronous` functions have an important downside, which is that they are `blocking`. 
+
+- If function A calls function B and needs to know what its return value is, then function A must wait for function B to finish before it can continue.
+
+- `blocking` code is problematic because now you’ve `blocked a whole thread`.
+
+- Although `synchronous` functions are easy to think about and work with, they aren’t very efficient for certain kinds of tasks. 
+
+- To make our code more flexible and more efficient, it’s possible to create `asynchronous` functions instead.
 
 
