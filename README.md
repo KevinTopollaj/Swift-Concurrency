@@ -4,6 +4,7 @@
 
 * [Concurrency vs parallelism](#Concurrency-vs-parallelism)
 * [Understanding threads and queues](#Understanding-threads-and-queues)
+* [Main thread and main queue](#Main-thread-and-main-queue)
 
 
 ## Concurrency vs parallelism
@@ -41,3 +42,16 @@
 - `Threads` are the individual slices of a program that do pieces of work.
 
 - `Queues` are like pipelines of execution where we can request that work can be done at some point.
+
+
+## Main thread and main queue
+
+- `Main thread` is the one that starts our program, and it’s also the one where all our UI work must happen.
+
+-  Your `main queue` will always execute on the `main thread` and is therefore where you’ll be doing your UI work, it’s also possible that `other queues` might sometimes run on the `main thread` – the system is free to move things around in whatever way is most efficient.
+
+- If you’re on the `main queue` then you’re definitely on the `main thread`.
+
+- Being on the `main thread` doesn’t automatically mean you’re on the `main queue`, a different queue could temporarily be running on the `main thread`.
+
+
