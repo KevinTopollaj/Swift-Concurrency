@@ -13,6 +13,7 @@
 
 * [What is a synchronous function?](#What-is-a-synchronous-function)
 * [What is an asynchronous function?](#What-is-an-asynchronous-function)
+* [How to create and call an async function](#How-to-create-and-call-an-async-function)
 
 
 # Introduction
@@ -226,4 +227,95 @@ if let data = await fetchNews() {
 - This requirement for `await` is identical to the requirement for `try`, where we must mark each line of code that might throw errors.
 
 - `Async` functions are like regular functions, except if they need to, they `can suspend themselves and all their callers, freeing up their thread to do other work`.
+
+
+## How to create and call an async function
+
+- Using `async functions` in Swift is done in two steps: 
+
+1. Declaring the function itself as being `async`. 
+
+2. Calling that function using `await`.
+
+-  If we were building an app that wanted to:
+
+1. Download a whole bunch of temperature readings from a weather station. 
+
+2. Calculate the average temperature.
+
+3. Upload those results
+
+- We might want to make all three of those async:
+
+1. Downloading data from the internet should always be done `asynchronously`, even a very small download can take a long time if the user has a bad cellphone connection.
+
+2. Doing lots of mathematics might run quickly if the system is doing nothing else, but it might also take a long time if you have complex work and the system is busy doing something else.
+
+3. Uploading data to the internet suffers from the same networking problems as downloading, and should always be done `asynchronously`.
+
+- To actually use those functions we would then need to write a fourth function that calls them one by one and prints the response. 
+
+- This function also needs to be `async`, because in theory the three functions it calls could suspend and so it might also need to be suspended.
+
+```swift
+func fetchWeatherHistory() async -> [Double] {
+    (1...100_000).map { _ in Double.random(in: -10...30) }
+}
+
+func calculateAverageTemperature(for records: [Double]) async -> Double {
+    let total = records.reduce(0, +)
+    let average = total / Double(records.count)
+    return average
+}
+
+func upload(result: Double) async -> String {
+    "OK"
+}
+
+func processWeather() async {
+    let records = await fetchWeatherHistory()
+    let average = await calculateAverageTemperature(for: records)
+    let response = await upload(result: average)
+    print("Server response: \(response)")
+}
+
+await processWeather()
+```
+
+- So, we have three simple `async functions` that fit together to form a sequence: `download some data`, `process that data`, `then upload the result`. 
+
+- That all gets stitched together into a cohesive flow using the `processWeather()` function, which can then be called from elsewhere.
+
+- That’s not a lot of code, but it is a lot of functionality:
+
+- Every one of those `await` calls is a `potential suspension point`, which is why we marked it explicitly. Like I said, one `async function` can `suspend as many times as is needed`.
+
+- Swift will run each of the `await` calls `in sequence`, waiting for the previous one to complete. This is not going to run several things in parallel.
+
+- Each time an `await` call finishes, its final value gets assigned to one of our constants – `records`, `average`, and `response`. 
+
+- Once created this is just regular data, no different from if we had created it `synchronously`.
+
+- Because it calls `async functions` using `await`, it is required that `processWeather()` be itself an `async function`. If you remove that Swift will refuse to build your code.
+
+- When reading `async functions` like this one, it’s good practice to look for the `await` calls because they are all places where unknown other amounts of work might take place before the next line of code executes.
+
+```swift
+func processWeather() async {
+    let records = await fetchWeatherHistory()
+    // anything could happen here
+    let average = await calculateAverageTemperature(for: records)
+    // or here
+    let response = await upload(result: average)
+    // or here
+    print("Server response: \(response)")
+}
+```
+
+- We’re only using `local variables` inside this function, so they `are safe`. 
+
+- However, if you were relying on `properties from a class`, for example, they `might have changed` between each of those `await` lines.
+
+- Swift provides ways of protecting against this using a system known as `actors`.
+
 
