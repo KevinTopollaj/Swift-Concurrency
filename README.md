@@ -15,6 +15,7 @@
 * [What is an asynchronous function?](#What-is-an-asynchronous-function)
 * [How to create and call an async function](#How-to-create-and-call-an-async-function)
 * [How to call async throwing functions](#How-to-call-async-throwing-functions)
+* [What calls the first async function?](#What-calls-the-first-async-function)
 
 
 # Introduction
@@ -356,3 +357,112 @@ if let favorites = try? await fetchFavorites() {
 
 - We’re waiting for some work to complete, and when it does complete we’ll check whether it ended up throwing an error or not.
 
+
+## What calls the first async function?
+
+- You can only call `async functions` from `other async functions`, because they `might need to suspend` themselves and everything that is waiting for them.
+
+- If only `async functions` can call `other async functions`, what starts it all what calls the very first async function?
+
+- Well, there are three main approaches you’ll find yourself using:
+
+1- First, in simple command-line programs using the `@main attribute`, you can declare your `main()` method to be `async`. 
+
+- This means your program will immediately launch into an `async function`, so you can call `other async functions` freely.
+
+```swift
+func processWeather() async {
+    // Do async work here
+}
+
+@main
+struct MainApp {
+    static func main() async {
+        await processWeather()
+    }
+}
+```
+
+2- Second, in apps built with something like `SwiftUI` the framework itself has various places that can trigger an `async function`. 
+
+- For example, the `refreshable()` and `task()` modifiers can both call `async functions` freely.
+
+- Using the `task()` modifier we could write a simple “View Source” app that fetches the content of a website when our view appears:
+
+- Tip: Using `task()` will almost certainly `run our code away from the main thread`, but the `@State property wrapper` has specifically been `written to allow us to modify its value on any thread`.
+
+```swift
+struct ContentView: View {
+    @State private var sourceCode = ""
+
+    var body: some View {
+        ScrollView {
+            Text(sourceCode)
+        }
+        .task {
+            await fetchSource()
+        }
+    }
+
+    func fetchSource() async {
+        do {
+            let url = URL(string: "https://apple.com")!
+
+            let (data, _) = try await URLSession.shared.data(from: url)
+            sourceCode = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            sourceCode = "Failed to fetch apple.com"
+        }
+    }
+}
+```
+
+3- The third option is that Swift provides a dedicated `Task API` that lets us `call async functions` from a `synchronous function`.
+
+- When you use something like `Task` you’re asking Swift to `run some async code`.
+
+- If you don’t care about the result you have nothing to wait for – the task will start running immediately while your own function continues, and it will always run to completion even if you don’t store the active task somewhere.
+
+- This means you’re `not awaiting the result of the task`, so you `won’t run the risk of being suspended`.
+
+- When you actually want to `use any returned value from your task`, that’s when `await` is required.
+
+- This time we’re going to `trigger the network fetch` using a `button press`, which `is synchronous by default`, so we’re going to wrap our work in a `Task`.
+
+- This is possible because we don’t need to wait for the task to complete – it will always run to completion as soon as it is made, and will take care of updating the UI for us.
+
+```swift
+struct ContentView: View {
+    @State private var site = "https://"
+    @State private var sourceCode = ""
+
+    var body: some View {
+        VStack {
+            HStack {
+                TextField("Website address", text: $site)
+                    .textFieldStyle(.roundedBorder)
+                Button("Go") {
+                    Task {
+                        await fetchSource()
+                    }
+                }
+            }
+            .padding()
+
+            ScrollView {
+                Text(sourceCode)
+            }
+        }
+    }
+
+    func fetchSource() async {
+        do {
+            let url = URL(string: site)!
+            let (data, _) = try await URLSession.shared.data(from: url)
+            sourceCode = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            sourceCode = "Failed to fetch \(site)"
+        }
+    }
+}
+```
