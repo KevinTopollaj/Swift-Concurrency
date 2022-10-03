@@ -6,5 +6,6 @@
         <page name='03-How to call async throwing functions'/>
         <page name='04-What calls the first async function?'/>
         <page name='05-How to create and use async properties'/>
+        <page name='06-How to call an async function using async let'/>
     </pages>
 </playground>
