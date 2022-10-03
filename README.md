@@ -17,6 +17,7 @@
 * [How to call async throwing functions](#How-to-call-async-throwing-functions)
 * [What calls the first async function?](#What-calls-the-first-async-function)
 * [What’s the performance cost of calling an async function?](#What’s-the-performance-cost-of-calling-an-async-function)
+* [How to create and use async properties](#How-to-create-and-use-async-properties)
 
 
 # Introduction
@@ -488,3 +489,46 @@ struct ContentView: View {
 - That last part carries an important side effect: `using await will not cause your code to wait for one runloop to go by before continuing`.
 
 - If your code doesn’t actually suspend, the only cost to calling an asynchronous function is the slightly more expensive calling convention, and if your code does suspend then any cost is more or less irrelevant because you’ve gained so much extra performance thanks to the suspension happening in the first place.
+
+
+## How to create and use async properties
+
+- Just as Swift’s functions can be `asynchronous`, `computed properties can also be asynchronous`, attempting to access them must also use `await` or similar, and may also need `throws` if errors can be thrown when computing the property.
+
+- This is what allows things like the `value` property of `Task` to work, it’s a simple property, but we must access it using `await` because it might not have completed yet.
+
+- `Important`: This is `only possible on read-only computed properties`, attempting to provide a setter will cause a compile error.
+
+- To demonstrate this, we could create a `RemoteFile` struct that stores a `URL` and a `type that conforms to Decodable`. 
+
+- This struct won’t actually fetch the URL when the struct is created, but will instead dynamically fetch the content’s of the URL every time the property is requested so that we can update our UI dynamically.
+
+- Tip: If you use `URLSession.shared` to fetch your data it will `automatically be cached`, so we’re going to create a custom `URL session` that always ignores local and remote caches to make sure our remote file is always fetched.
+
+```swift
+// First, a URLSession instance that never uses caches
+extension URLSession {
+    static let noCacheSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        return URLSession(configuration: config)
+    }()
+}
+
+// Now our struct that will fetch and decode a URL every time we read its `contents` property
+struct RemoteFile<T: Decodable> {
+    let url: URL
+    let type: T.Type
+
+    var contents: T {
+        get async throws {
+            let (data, _) = try await URLSession.noCacheSession.data(from: url)
+            return try JSONDecoder().decode(T.self, from: data)
+        }
+    }
+}
+```
+
+- So, we’re fetching the URL’s contents every time `contents` is access, as opposed to storing the URL’s contents when a `RemoteFile` instance is created. 
+
+- As a result, the property is marked both `async` and `throws` so that callers must use `await` or similar when accessing it.
