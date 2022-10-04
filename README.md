@@ -19,7 +19,7 @@
 * [What’s the performance cost of calling an async function?](#What’s-the-performance-cost-of-calling-an-async-function)
 * [How to create and use async properties](#How-to-create-and-use-async-properties)
 * [How to call an async function using async let](#How-to-call-an-async-function-using-async-let)
-* [What is the difference between await and async let?](#What-is-the-difference-between-await-and-async-let?)
+* [What is the difference between await and async let?](#What-is-the-difference-between-await-and-async-let)
 
 
 # Introduction
