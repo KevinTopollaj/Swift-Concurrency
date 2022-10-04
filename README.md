@@ -19,6 +19,8 @@
 * [What’s the performance cost of calling an async function?](#What’s-the-performance-cost-of-calling-an-async-function)
 * [How to create and use async properties](#How-to-create-and-use-async-properties)
 * [How to call an async function using async let](#How-to-call-an-async-function-using-async-let)
+* [What is the difference between await and async let?](#What-is-the-difference-between-await-and-async-let?)
+
 
 # Introduction
 
@@ -672,3 +674,35 @@ var user = User(id: UUID(), name: "Taylor Swift", age: 26)
 - Even though `it’s a struct`, the `user variable will be captured` rather than copied and so Swift will `throw up` the build error `“Reference to captured var 'user' in concurrently-executing code.”`
 
 - To fix this we need to make it clear the struct cannot change by surprise, even when captured, `by making it a constant` rather than a variable.
+
+
+## What is the difference between await and async let?
+
+- Swift lets us perform `async operations` using both `await` and `async let`, but although they both `run some async code` they don’t quite run the same.
+
+- `await` immediately waits for the work to complete so we can read its result, whereas `async let` does not.
+
+- If you want to make two network requests where one relates to the other, you might have code like this:
+
+```swift
+let first = await requestFirstData()
+let second = await requestSecondData(using: first)
+```
+
+- There the call to `requestSecondData()` cannot start until the call to `requestFirstData()` has completed and returned its value it just doesn’t make sense for those two to run simultaneously.
+
+- If you’re making several completely different requests – perhaps you want to download the latest news, the weather forecast, and check whether an app update was available – then `those things do not rely on each other to complete` and would be great candidates for `async let`:
+
+```swift
+func getAppData() -> ([News], [Weather], Bool) {
+    async let news = getNews()
+    async let weather = getWeather()
+    async let hasUpdate = getAppUpdateAvailable()
+    return await (news, weather, hasUpdate)
+}
+```
+
+- Use `await` when it’s important you have a value before continuing.
+
+- Use `async let` when your work can continue without the value for the time being, you can always use `await` later on when it’s actually needed.
+
