@@ -16,7 +16,7 @@
 * [How to create and call an async function](#How-to-create-and-call-an-async-function)
 * [How to call async throwing functions](#How-to-call-async-throwing-functions)
 * [What calls the first async function?](#What-calls-the-first-async-function)
-* [What’s the performance cost of calling an async function?](#What’s-the-performance-cost-of-calling-an-async-function)
+* [What is the performance cost of calling an async function?](#What-is-the-performance-cost-of-calling-an-async-function)
 * [How to create and use async properties](#How-to-create-and-use-async-properties)
 * [How to call an async function using async let](#How-to-call-an-async-function-using-async-let)
 * [What is the difference between await and async let?](#What-is-the-difference-between-await-and-async-let)
@@ -472,7 +472,7 @@ struct ContentView: View {
 ```
 
 
-## What’s the performance cost of calling an async function?
+## What is the performance cost of calling an async function?
 
 - Whenever we use `await` to call an `async function`, we mark a potential suspension point in our code – we’re acknowledging that it’s entirely possible our function will be suspended, along with all its callers, while the work completes.
 
