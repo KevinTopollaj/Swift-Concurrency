@@ -21,6 +21,7 @@
 * [How to call an async function using async let](#How-to-call-an-async-function-using-async-let)
 * [What is the difference between await and async let?](#What-is-the-difference-between-await-and-async-let)
 * [Why we can not call async functions using async var?](#Why-we-can-not-call-async-functions-using-async-var)
+* [How to use continuations to convert completion handlers into async functions](#How-to-use-continuations-to-convert-completion-handlers-into-async-functions)
 
 
 # Introduction
@@ -738,3 +739,90 @@ print("Username is \(username)")
 - This kind of code would create all sorts of confusion, so `it’s just not allowed` – `async let` is our only option.
 
 
+## How to use continuations to convert completion handlers into async functions
+
+- Older Swift code uses `completion handlers` for `notifying us when some work has completed`, and sooner or later you’re going to have to use it from an `async` function – either because you’re using a library someone else created, or because it’s one of your own functions but updating it to `async` would take a lot of work.
+
+- Swift uses `continuations` to solve this problem, allowing us to `create a bridge between older functions with completion handlers and newer async` code.
+
+- To demonstrate this problem, here’s some code that attempts to fetch some JSON from a web server, decode it into an array of `Message` structs, then send it back using a `completion handler`:
+
+```swift
+struct Message: Decodable, Identifiable {
+    let id: Int
+    let from: String
+    let message: String
+}
+
+func fetchMessages(completion: @escaping ([Message]) -> Void) {
+    let url = URL(string: "https://hws.dev/user-messages.json")!
+
+    URLSession.shared.dataTask(with: url) { data, response, error in
+        if let data = data {
+            if let messages = try? JSONDecoder().decode([Message].self, from: data) {
+                completion(messages)
+                return
+            }
+        }
+
+        completion([])
+    }.resume()
+}
+```
+
+- Although the `dataTask(with:)` method does run our code on its own thread, this is `not an async function` in the sense of Swift’s `async/await` feature, which means it’s going to be messy to integrate into other code that does use modern `async` Swift.
+
+- To fix this, Swift provides us with `continuations`, which `are special objects we pass into the completion handlers as captured values`. 
+
+- Once the `completion handler fires`, we can either `return the finished value`, `throw an error`, or `send back a Result` that can be handled elsewhere.
+
+- In the case of `fetchMessages()`, we want to write a `new async function` that calls the original, and `in its completion handler we’ll return whatever value was sent back`:
+
+```swift
+struct Message: Decodable, Identifiable {
+    let id: Int
+    let from: String
+    let message: String
+}
+
+func fetchMessages(completion: @escaping ([Message]) -> Void) {
+    let url = URL(string: "https://hws.dev/user-messages.json")!
+
+    URLSession.shared.dataTask(with: url) { data, response, error in
+        if let data = data {
+            if let messages = try? JSONDecoder().decode([Message].self, from: data) {
+                completion(messages)
+                return
+            }
+        }
+
+        completion([])
+    }.resume()
+}
+
+func fetchMessages() async -> [Message] {
+    await withCheckedContinuation { continuation in
+        fetchMessages { messages in
+            continuation.resume(returning: messages)
+        }
+    }
+}
+
+let messages = await fetchMessages()
+
+print("Downloaded \(messages.count) messages.")
+```
+
+- Starting a `continuation` is done using the `withCheckedContinuation()` function, which passes into itself the `continuation` we need to work with.
+
+- It’s called a `“checked” continuation` because `Swift checks that we’re using the continuation correctly`, which means abiding by one very simple, very important rule:
+
+- `Your continuation must be resumed exactly once. Not zero times, and not twice or more times – exactly once.`
+
+- If you `call` the `checked continuation twice or more`, Swift will cause your `program to halt – it will just crash`. 
+
+- If you `fail to resume the continuation` at all, Swift will `print out a large warning` in your debug log similar to this: `“SWIFT TASK CONTINUATION MISUSE: fetchMessages() leaked its continuation!”`
+
+- This is because `you’re leaving the task suspended`, `causing any resources it’s using to be held indefinitely`.
+
+- However, if you have checked your code carefully and you’re sure it is correct, you can if you want replace the `withCheckedContinuation()` function with a call to `withUnsafeContinuation()`, which `works exactly the same` way but `doesn’t add the runtime cost of checking you’ve used the continuation correctly`.
