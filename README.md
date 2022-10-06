@@ -22,6 +22,7 @@
 * [What is the difference between await and async let?](#What-is-the-difference-between-await-and-async-let)
 * [Why we can not call async functions using async var?](#Why-we-can-not-call-async-functions-using-async-var)
 * [How to use continuations to convert completion handlers into async functions](#How-to-use-continuations-to-convert-completion-handlers-into-async-functions)
+* [How to create continuations that can throw errors](#How-to-create-continuations-that-can-throw-errors)
 
 
 # Introduction
@@ -826,3 +827,67 @@ print("Downloaded \(messages.count) messages.")
 - This is because `you’re leaving the task suspended`, `causing any resources it’s using to be held indefinitely`.
 
 - However, if you have checked your code carefully and you’re sure it is correct, you can if you want replace the `withCheckedContinuation()` function with a call to `withUnsafeContinuation()`, which `works exactly the same` way but `doesn’t add the runtime cost of checking you’ve used the continuation correctly`.
+
+
+## How to create continuations that can throw errors
+
+- Swift provides `withCheckedContinuation()` and `withUnsafeContinuation()` to let us `create continuations that can’t throw errors`. 
+
+- If the API you’re using `can throw errors` you should use their throwing equivalents: `withCheckedThrowingContinuation()` and `withUnsafeThrowingContinuation()`.
+
+- Both of these replacement functions work identically to their non-throwing counterparts, except `now you need to catch any errors thrown inside the continuation`.
+
+- So, first we’d define the errors we want to throw, then we’d write a newer `async` version of `fetchMessages()` using `withCheckedThrowingContinuation()`, and handling the “no messages” error using whatever code we wanted:
+
+```swift
+struct Message: Decodable, Identifiable {
+    let id: Int
+    let from: String
+    let message: String
+}
+
+func fetchMessages(completion: @escaping ([Message]) -> Void) {
+    let url = URL(string: "https://hws.dev/user-messages.json")!
+
+    URLSession.shared.dataTask(with: url) { data, response, error in
+        if let data = data {
+            if let messages = try? JSONDecoder().decode([Message].self, from: data) {
+                completion(messages)
+                return
+            }
+        }
+
+        completion([])
+    }.resume()
+}
+
+// An example error we can throw
+enum FetchError: Error {
+    case noMessages
+}
+
+func fetchMessages() async -> [Message] {
+    do {
+        return try await withCheckedThrowingContinuation { continuation in
+            fetchMessages { messages in
+                if messages.isEmpty {
+                    continuation.resume(throwing: FetchError.noMessages)
+                } else {
+                    continuation.resume(returning: messages)
+                }
+            }
+        }
+    } catch {
+        return [
+            Message(id: 1, from: "Tom", message: "Welcome to MySpace! I'm your new friend.")
+        ]
+    }
+}
+
+let messages = await fetchMessages()
+print("Downloaded \(messages.count) messages.")
+```
+
+- That detects a lack of messages and sends back a welcome message instead, but you could also `let the error propagate upwards` by `removing do/catch` and making the new `fetchMessages()` function `throwing`.
+
+- Tip: Using `withUnsafeThrowingContinuation()` comes with all the same warnings as using `withUnsafeContinuation()` – you should `only switch over to it if it’s causing a performance problem`.

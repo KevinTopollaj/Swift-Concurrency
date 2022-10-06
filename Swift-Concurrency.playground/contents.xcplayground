@@ -8,5 +8,6 @@
         <page name='05-How to create and use async properties'/>
         <page name='06-How to call an async function using async let'/>
         <page name='07-How to use continuations to convert completion handlers into async functions'/>
+        <page name='08-How to create continuations that can throw errors'/>
     </pages>
 </playground>
