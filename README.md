@@ -23,6 +23,7 @@
 * [Why we can not call async functions using async var?](#Why-we-can-not-call-async-functions-using-async-var)
 * [How to use continuations to convert completion handlers into async functions](#How-to-use-continuations-to-convert-completion-handlers-into-async-functions)
 * [How to create continuations that can throw errors](#How-to-create-continuations-that-can-throw-errors)
+* [How to store continuations to be resumed later](#How-to-store-continuations-to-be-resumed-later)
 
 
 # Introduction
@@ -891,3 +892,147 @@ print("Downloaded \(messages.count) messages.")
 - That detects a lack of messages and sends back a welcome message instead, but you could also `let the error propagate upwards` by `removing do/catch` and making the new `fetchMessages()` function `throwing`.
 
 - Tip: Using `withUnsafeThrowingContinuation()` comes with all the same warnings as using `withUnsafeContinuation()` – you should `only switch over to it if it’s causing a performance problem`.
+
+
+## How to store continuations to be resumed later
+
+- Many of Apple’s frameworks report back success or failure using multiple different delegate callback methods rather than completion handlers, which means a simple continuation won’t work.
+
+- As a simple example, if you were implementing `WKNavigationDelegate` to handle navigating around a `WKWebView` you would implement methods like this:
+
+```swift
+func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    // our work succeeded
+}
+
+func webView(WKWebView, didFail: WKNavigation!, withError: Error) {
+    // our work failed
+}
+```
+
+- Rather than receiving the result of our work through a single completion closure, we instead get the result in two different places.
+
+- In this situation we need to do a little more work to create `async functions` using `continuations`, because `we need to be able to resume the continuation` in either method.
+
+- To solve this problem you need to know that `continuations are just structs with a specific generic type`.
+
+- For example, a `checked continuation that succeeds with a string and never throws an error` has the type `CheckedContinuation<String, Never>`, and an `unchecked continuation that returns an integer array and can throw errors` has the type `UnsafeContinuation<[Int], Error>`.
+
+- All this is important because to solve our delegate callback problem `we need to stash away a continuation in one method` – when we trigger some functionality – then `resume it from different methods` based on `whether our code succeeds or fails`.
+
+- So we’re going to create an `ObservableObject` to wrap `Core Location`, making it `easier to request the user’s location`.
+
+- First, add these imports to your code so `we can read their location`, and also `use SwiftUI’s LocationButton to get standardized UI`:
+
+```swift
+import CoreLocation
+import CoreLocationUI
+```
+
+- Second, we’re going to create a small part of a `LocationManager` class that has two properties:
+
+1- one for `storing a continuation to track whether we have their location coordinate or an error`.
+
+2- one to `track an instance of CLLocationManager that does the work of finding the user`. 
+
+- This also needs a small initializer so the `CLLocationManager` knows to report location updates to us.
+
+```swift
+@MainActor
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    var locationContinuation: CheckedContinuation<CLLocationCoordinate2D?, Error>?
+    let manager = CLLocationManager()
+
+    override init() {
+        super.init()
+        manager.delegate = self
+    }
+
+    // More code to come
+}
+```
+
+- Because that observable object is used with SwiftUI, I’ve marked it with the `@MainActor attribute` to `avoid updating the user interface on a background thread`.
+
+- Third, we need to `add an async function` that requests the user’s location. 
+
+- This needs to be wrapped inside a `withCheckedThrowingContinuation()` call, so that `Swift creates a continuation we can stash away and use later`.
+
+```swift
+func requestLocation() async throws -> CLLocationCoordinate2D? {
+    try await withCheckedThrowingContinuation { continuation in
+        locationContinuation = continuation
+        manager.requestLocation()
+    }
+}
+```
+
+- And finally we need to implement the two methods that might be called after we request the user’s location: `didUpdateLocations` will be `called if their location was received`, and `didFailWithError otherwise`.
+
+- `Both of these need to resume our continuation`, with `the former sending back the first location coordinate we were given`, and `the latter throwing whatever error occurred`:
+
+```swift
+func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    locationContinuation?.resume(returning: locations.first?.coordinate)
+}
+
+func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    locationContinuation?.resume(throwing: error)
+}
+```
+
+- So, `by storing our continuation as a property we’re able to resume it in two different places` – `once where things go to plan`, and `once where things go wrong` for whatever reason.
+
+- Either way, `no matter what happens our continuation resumes exactly once`.
+
+- At this point our `continuation wrapper is complete`, so we can use it inside a SwiftUI view. 
+
+- If we put everything together, here’s the end result:
+
+```swift
+@MainActor
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    var locationContinuation: CheckedContinuation<CLLocationCoordinate2D?, Error>?
+    let manager = CLLocationManager()
+
+    override init() {
+        super.init()
+        manager.delegate = self
+    }
+
+    func requestLocation() async throws -> CLLocationCoordinate2D? {
+        try await withCheckedThrowingContinuation { continuation in
+            locationContinuation = continuation
+            manager.requestLocation()
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        locationContinuation?.resume(returning: locations.first?.coordinate)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        locationContinuation?.resume(throwing: error)
+    }
+}
+
+struct ContentView: View {
+    @StateObject private var locationManager = LocationManager()
+
+    var body: some View {
+        LocationButton {
+            Task {
+                if let location = try? await locationManager.requestLocation() {
+                    print("Location: \(location)")
+                } else {
+                    print("Location unknown.")
+                }
+            }
+        }
+        .frame(height: 44)
+        .foregroundColor(.white)
+        .clipShape(Capsule())
+        .padding()
+    }
+}
+```
