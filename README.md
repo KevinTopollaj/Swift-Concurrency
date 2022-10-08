@@ -29,7 +29,7 @@
 - Sequences and streams
 
 * [What is the difference between Sequence AsyncSequence and AsyncStream?](#What-is-the-difference-between-Sequence-AsyncSequence-and-AsyncStream)
-
+* [How to loop over an AsyncSequence using for await](#How-to-loop-over-an-AsyncSequence-using-for-await)
 
 
 # Introduction
@@ -1102,3 +1102,86 @@ doRegularWork()
 - The `code to create a custom one yourself is almost the same`, `both can throw errors if you want`, `both get access to common functionality` such as `map()`, `filter()`, `contains()`, and `reduce()`, and you can also use `break` or `continue` to exit loops over either of them.
 
 
+## How to loop over an AsyncSequence using for await
+
+- You can loop over an `AsyncSequence` using Swift’s regular loop types, `for`, `while`, and `repeat`.
+
+- Whenever you `read a value from the async sequence` you must use either `await` or `try await` depending on whether it can throw errors or not.
+
+- As an example, `URL` has a built-in `lines` property that generates an `async sequence` of all the lines directly from a URL. 
+
+- This does a lot of work internally: making the network request, fetching part of the data, converting it into a string, sending it back for us to use, then repeating fetch, convert, and send again and again until the server stops sending back data.
+
+```swift
+func fetchUsers() async throws {
+    let url = URL(string: "https://hws.dev/users.csv")!
+
+    for try await line in url.lines {
+        print("Received user: \(line)")
+    }
+}
+
+try? await fetchUsers()
+```
+
+- Notice how we must use `try along with await`, because `fetching data from the network might throw errors`.
+
+- Using `lines` returns a specialized type called `AsyncLineSequence`, which returns individual lines from the download as strings. 
+
+- Because our source happens to be a `comma-separated values file (CSV)`, we can write code to read the values from each line easily enough:
+
+```swift
+func printUsers() async throws {
+    let url = URL(string: "https://hws.dev/users.csv")!
+
+    for try await line in url.lines {
+        let parts = line.split(separator: ",")
+        guard parts.count == 4 else { continue }
+
+        guard let id = Int(parts[0]) else { continue }
+        let firstName = parts[1]
+        let lastName = parts[2]
+        let country = parts[3]
+
+        print("Found user #\(id): \(firstName) \(lastName) from \(country)")
+    }
+}
+
+try? await printUsers()
+```
+
+- Just like a `regular sequence`, using an `async sequence` in this way effectively generates an `iterator` then calls `next()` on it repeatedly until it `returns nil`, at which point the loop finishes.
+
+- If you want more control over how the sequence is read, you can of course `create your own iterator` then call `next()` whenever you want and as often as you want. 
+
+- Again, it will send back `nil` when the `sequence is empty`, at which point you should `stop calling it`.
+
+- For example, we could `read the first user from our CSV and treat them specially`, `then read the next four users and do something specific for them`, `then finally reduce all the remainder down into an array of other users`:
+
+```swift
+func printUsers() async throws {
+    let url = URL(string: "https://hws.dev/users.csv")!
+
+    var iterator = url.lines.makeAsyncIterator()
+
+    if let line = try await iterator.next() {
+        print("The first user is \(line)")
+    }
+
+    for i in 2...5 {
+        if let line = try await iterator.next() {
+            print("User #\(i): \(line)")
+        }
+    }
+
+    var remainingResults = [String]()
+
+    while let result = try await iterator.next() {
+        remainingResults.append(result)
+    }
+
+    print("There were \(remainingResults.count) other users.")
+}
+
+try? await printUsers()
+```
