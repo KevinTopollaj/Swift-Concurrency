@@ -26,6 +26,11 @@
 * [How to store continuations to be resumed later](#How-to-store-continuations-to-be-resumed-later)
 * [How to fix the error “async call in a function that does not support concurrency”](#How-to-fix-the-error-async-call-in-a-function-that-does-not-support-concurrency)
 
+- Sequences and streams
+
+* [What is the difference between Sequence AsyncSequence and AsyncStream?](#What-is-the-difference-between-Sequence-AsyncSequence-and-AsyncStream)
+
+
 
 # Introduction
 
@@ -1068,3 +1073,32 @@ doRegularWork()
 - `Tasks` like this one are `created and run immediately`. 
 
 - We `aren’t waiting for the task to complete`, so we `shouldn’t use await when creating it`.
+
+
+## What is the difference between Sequence AsyncSequence and AsyncStream?
+
+- Swift provides `several ways of receiving a potentially endless flow of data`, allowing us to `read values one by one`, or `loop over them` using `for`, `while`, or similar.
+
+- The simplest is the `Sequence protocol`, which continually returns values until the sequence is terminated by returning `nil`.
+
+- Lots of things conform to `Sequence`, including `arrays, strings, ranges, Data` and more.
+
+- Through protocol extensions `Sequence` also gives us access to a variety of methods, including `contains()`, `filter()`, `map()`, and others.
+
+- The `AsyncSequence protocol` is almost identical to `Sequence`, with the important exception that `each element in the sequence is returned asynchronously`.
+
+- It actually has two major impacts on the way they work.
+
+1- Reading a value from the `async sequence` must use `await` so the `sequence can suspend itself` while reading its next value. This might be performing some complex work, or perhaps fetching data from a server.
+
+2- More advanced `async sequences` known as `async streams` might `generate values faster than you can read them`, in which case you can `either discard the extra values or buffer them to be read later on`.
+
+- In the first case think of it like `your code wanting values faster than the async sequence can make them`. 
+
+- In the second case it’s more like `the async sequence generating data faster than than your code can read them`.
+
+- Otherwise, `Sequence` and `AsyncSequence` have lots in common: 
+
+- The `code to create a custom one yourself is almost the same`, `both can throw errors if you want`, `both get access to common functionality` such as `map()`, `filter()`, `contains()`, and `reduce()`, and you can also use `break` or `continue` to exit loops over either of them.
+
+
