@@ -10,5 +10,6 @@
         <page name='07-How to use continuations to convert completion handlers into async functions'/>
         <page name='08-How to create continuations that can throw errors'/>
         <page name='09-How to store continuations to be resumed later'/>
+        <page name='10-How to fix the error “async call in a function that does not support concurrency”'/>
     </pages>
 </playground>
