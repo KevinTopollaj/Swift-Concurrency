@@ -30,7 +30,7 @@
 
 * [What is the difference between Sequence AsyncSequence and AsyncStream?](#What-is-the-difference-between-Sequence-AsyncSequence-and-AsyncStream)
 * [How to loop over an AsyncSequence using for await](#How-to-loop-over-an-AsyncSequence-using-for-await)
-
+* [How to manipulate an AsyncSequence using map() filter() and more](#How-to-manipulate-an-AsyncSequence-using-map()-filter()-and-more)
 
 # Introduction
 
@@ -1184,4 +1184,204 @@ func printUsers() async throws {
 }
 
 try? await printUsers()
+```
+
+
+## How to manipulate an AsyncSequence using map() filter() and more
+
+- `AsyncSequence` has implementations of many of the same methods that come with `Sequence`, but how they operate varies.
+
+- Some return a single value that fulfills your request, such as `requesting the first value from the async sequence`. 
+
+- Others return a `new kind of async sequence`, such as filtering values as they arrive.
+
+- This distinction in turn `affects how they are called`: 
+
+- `returning a single value` requires you to `await at the call site`.
+
+- `returning a new async sequence` requires you to `await later on when you’re reading values from the new sequence`.
+
+- `Mapping an async sequence` creates a new async sequence with the type `AsyncMapSequence`, which stores both your `original async sequence` and also `the transformation function you want to use`.
+
+- You effectively put the transformation into a chain of work: 
+
+- `The sequence now fetches an item, transforms it, then sends it back`.
+
+- We could map over the lines from a `URL` to make each line uppercase, like this:
+
+```swift
+func shoutQuotes() async throws {
+    let url = URL(string: "https://hws.dev/quotes.txt")!
+    
+    let uppercaseLines = url.lines.map(\.localizedUppercase)
+
+    for try await line in uppercaseLines {
+        print(line)
+    }
+}
+
+try? await shoutQuotes()
+```
+
+- This also works for converting between types using `map()`, like this:
+
+```swift
+struct Quote {
+    let text: String
+}
+
+func printQuotes() async throws {
+    let url = URL(string: "https://hws.dev/quotes.txt")!
+
+    let quotes = url.lines.map(Quote.init)
+
+    for try await quote in quotes {
+        print(quote.text)
+    }
+}
+
+try? await printQuotes()
+```
+
+- Alternatively, we could use `filter()` to check every line with a predicate, and process only those that pass. 
+
+- Using our quotes, we could print only anonymous quotes like this:
+
+```swift
+func printAnonymousQuotes() async throws {
+
+    let url = URL(string: "https://hws.dev/quotes.txt")!
+    
+    let anonymousQuotes = url.lines.filter { $0.contains("Anonymous") }
+
+    for try await line in anonymousQuotes {
+        print(line)
+    }
+}
+
+try? await printAnonymousQuotes()
+```
+
+- Or we could use `prefix()` to read just the first five values from an async sequence:
+
+```swift
+func printTopQuotes() async throws {
+
+    let url = URL(string: "https://hws.dev/quotes.txt")!
+    
+    let topQuotes = url.lines.prefix(5)
+
+    for try await line in topQuotes {
+        print(line)
+    }
+}
+
+try? await printTopQuotes()
+```
+
+- And of course you can also combine these together in varying ways depending on what result you want. 
+
+- For example, this will filter for anonymous quotes, pick out the first five, then make them uppercase:
+
+```swift
+func printQuotes() async throws {
+
+    let url = URL(string: "https://hws.dev/quotes.txt")!
+
+    let anonymousQuotes = url.lines.filter { $0.contains("Anonymous") }
+    let topAnonymousQuotes = anonymousQuotes.prefix(5)
+    let shoutingTopAnonymousQuotes = topAnonymousQuotes.map(\.localizedUppercase)
+
+    for try await line in shoutingTopAnonymousQuotes {
+        print(line)
+    }
+}
+
+try? await printQuotes()
+```
+
+- Just like using a regular `Sequence`, `the order you apply these transformations matters` – putting `prefix()` before `filter()` will pick out the first five quotes then select only the ones that are anonymous, which might produce fewer results.
+
+- Each of these transformation methods `returns a new type specific to what the method does`, so calling `map()` returns an `AsyncMapSequence`, calling `filter()` returns an `AsyncFilterSequence`, and calling `prefix()` returns an `AsyncPrefixSequence`.
+
+- When you stack multiple transformations together – for example, `a filter, then a prefix, then a map`– this will inevitably produce a fairly `complex return type`, so if you intend to send back one of the complex async sequences you should consider an opaque return type like this:
+
+```swift
+func getQuotes() async -> some AsyncSequence {
+
+    let url = URL(string: "https://hws.dev/quotes.txt")!
+    
+    let anonymousQuotes = url.lines.filter { $0.contains("Anonymous") }
+    
+    let topAnonymousQuotes = anonymousQuotes.prefix(5)
+    
+    let shoutingTopAnonymousQuotes = topAnonymousQuotes.map(\.localizedUppercase)
+    
+    return shoutingTopAnonymousQuotes
+}
+
+let result = await getQuotes()
+
+do {
+    for try await quote in result {
+        print(quote)
+    }
+} catch {
+    print("Error fetching quotes")
+}
+```
+
+- All the transformations so far have created `new async sequences` and so we `did not needed to use them with await`, but many also produce a single value. 
+
+- These must use `await` in order to `suspend until all parts of the sequence have been returned`, and may also need to use `try` if the `sequence is throwing`.
+
+- For example, `allSatisfy()` will check whether `all elements in an async sequence pass a predicate of your choosing`:
+
+```swift
+func checkQuotes() async throws {
+    
+    let url = URL(string: "https://hws.dev/quotes.txt")!
+    
+    let noShortQuotes = try await url.lines.allSatisfy { $0.count > 30 }
+    
+    print(noShortQuotes)
+}
+
+try? await checkQuotes()
+```
+
+- Important: As with regular sequences, in order to return a correct value `allSatisfy()` must have fetched every value in the sequence first, and therefore `using it with an infinite sequence will never return a value`. 
+
+- The same is true of other similar functions, such as `min()`, `max()`, and `reduce()`, so be careful.
+
+- You can of course `combine methods that create new async sequences and return a single value`, for example to fetch lots of random numbers, convert them to integers, then find the largest:
+
+```swift
+func printHighestNumber() async throws {
+
+    let url = URL(string: "https://hws.dev/random-numbers.txt")!
+
+    if let highest = try await url.lines.compactMap(Int.init).max() {
+        print("Highest number: \(highest)")
+    } else {
+        print("No number was the highest.")
+    }
+}
+
+try? await printHighestNumber()
+```
+
+- Or to sum all the numbers:
+
+```swift
+func sumRandomNumbers() async throws {
+
+    let url = URL(string: "https://hws.dev/random-numbers.txt")!
+    
+    let sum = try await url.lines.compactMap(Int.init).reduce(0, +)
+    
+    print("Sum of numbers: \(sum)")
+}
+
+try? await sumRandomNumbers()
 ```
