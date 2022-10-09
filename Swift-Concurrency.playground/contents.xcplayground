@@ -12,5 +12,6 @@
         <page name='09-How to store continuations to be resumed later'/>
         <page name='10-How to fix the error “async call in a function that does not support concurrency”'/>
         <page name='11-How to loop over an AsyncSequence using for await '/>
+        <page name='12-How to manipulate an AsyncSequence using map() filter() and more'/>
     </pages>
 </playground>
