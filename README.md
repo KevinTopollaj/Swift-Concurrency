@@ -1404,7 +1404,7 @@ try? await sumRandomNumbers()
 
 - First, the simple one, which is an `async sequence` that doubles numbers every time `next()` is called:
 
-```swfit
+```swift
 struct DoubleGenerator: AsyncSequence, AsyncIteratorProtocol {
     
     typealias Element = Int
