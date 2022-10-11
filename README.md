@@ -32,6 +32,7 @@
 * [How to loop over an AsyncSequence using for await](#How-to-loop-over-an-AsyncSequence-using-for-await)
 * [How to manipulate an AsyncSequence using map() filter() and more](#How-to-manipulate-an-AsyncSequence-using-map()-filter()-and-more)
 * [How to create a custom AsyncSequence](#How-to-create-a-custom-AsyncSequence)
+* [How to convert an AsyncSequence into a Sequence](#How-to-convert-an-AsyncSequence-into-a-Sequence)
 
 
 # Introduction
@@ -1597,3 +1598,51 @@ struct ContentView: View {
 ```
 
 - When the code first runs the list will show Paul, but if you edit the JSON file and re-save with extra users, they will just slide into the SwiftUI list automatically.
+
+
+## How to convert an AsyncSequence into a Sequence
+
+- Swift does not provide a built-in way of converting an `AsyncSequence` into a regular `Sequence`, but often you’ll want to make this conversion yourself so you `don’t need to keep awaiting results to come back in the future`.
+
+- The easiest thing to do is call `reduce(into:)` on the sequence, appending each item to an array of the sequence’s element type. 
+
+- To make this more reusable, I’d recommend adding an extension such as this one:
+
+```swift
+extension AsyncSequence {
+
+    func collect() async rethrows -> [Element] {
+        try await reduce(into: [Element]()) { $0.append($1) }
+    }
+    
+}
+```
+
+- With that in place, you can now call `collect()` on any `async sequence` in order to `get a simple array of its values`. 
+
+- Because this is an `async operation`, you must call it using `await` like so:
+
+
+```swift
+extension AsyncSequence {
+    func collect() async rethrows -> [Element] {
+        try await reduce(into: [Element]()) { $0.append($1) }
+    }
+}
+
+func getNumberArray() async throws -> [Int] {
+    let url = URL(string: "https://hws.dev/random-numbers.txt")!
+    let numbers = url.lines.compactMap(Int.init)
+    return try await numbers.collect()
+}
+
+if let numbers = try? await getNumberArray() {
+    for number in numbers {
+        print(number)
+    }
+}
+```
+
+- Tip: Because we’ve made `collect()` use `rethrows`, you only need to call it using `try` if the call to `reduce()` would normally throw, so if you have an `async sequence` that doesn’t throw errors you can skip try entirely.
+
+
