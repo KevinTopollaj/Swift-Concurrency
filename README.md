@@ -34,6 +34,10 @@
 * [How to create a custom AsyncSequence](#How-to-create-a-custom-AsyncSequence)
 * [How to convert an AsyncSequence into a Sequence](#How-to-convert-an-AsyncSequence-into-a-Sequence)
 
+- Task and TaskGroup
+
+* [What are tasks and task groups?](#What-are-tasks-and-task-groups)
+
 
 # Introduction
 
@@ -1078,6 +1082,9 @@ doRegularWork()
 - We `aren’t waiting for the task to complete`, so we `shouldn’t use await when creating it`.
 
 
+# Sequences and streams
+
+
 ## What is the difference between Sequence AsyncSequence and AsyncStream?
 
 - Swift provides `several ways of receiving a potentially endless flow of data`, allowing us to `read values one by one`, or `loop over them` using `for`, `while`, or similar.
@@ -1644,5 +1651,43 @@ if let numbers = try? await getNumberArray() {
 ```
 
 - Tip: Because we’ve made `collect()` use `rethrows`, you only need to call it using `try` if the call to `reduce()` would normally throw, so if you have an `async sequence` that doesn’t throw errors you can skip try entirely.
+
+
+# Task and TaskGroup
+
+
+## What are tasks and task groups?
+
+- Using `async/await` in Swift allows us to `write asynchronous code` that is easy to read and understand, but by itself it `doesn’t enable us to run anything concurrently` – even with several CPU cores working hard, `async/await code would still execute sequentially`.
+
+- To `create actual concurrency` – to `provide the ability for multiple pieces of work to run at the same time` – Swift provides us with two specific types for constructing and managing concurrency in a way that makes it easier to use: `Task` and `TaskGroup`.
+
+- Although the types themselves aren’t complex, they unlock a lot of power and flexibility, and sit at the core of how we use concurrency with Swift.
+
+- Which you choose – `Task` or `TaskGroup` – depends on the goal of your work:
+
+- If you want one or two independent pieces of work to start, then `Task` is the right choice.
+
+- If you want to split up one job into several concurrent operations then `TaskGroup` is a better fit.
+
+- `Task groups` work best when their individual operations `return exactly the same kind of data`, but with a little extra effort you can coerce them into supporting heterogenous data types.
+
+- Although you might not realize it, `you’re using tasks` every time you write any `async code` in Swift.
+
+- You see, `all async functions run as part of a task` whether or not we explicitly ask for it to happen.
+
+- Even using `async let` is syntactic sugar for `creating a task then waiting for its result`.
+
+- This is why `if you use multiple sequential async let calls they will all start executing immediately` while the rest of your code continues.
+
+- Both `Task` and `TaskGroup` can be created with `one of four priority levels`: 
+
+- `high` is the most important, then `medium`, `low`, and finally `background` at the bottom.
+
+- Task priorities allow the system to adjust the order in which it executes work, meaning that important work can happen before unimportant work.
+
+- Tip: If you’ve been doing iOS programming for a while, you may prefer to use the more familiar `quality of service` priorities from `DispatchQueue`, which are `userInitiated` and `utility` in place of `high` and `low` respectively. 
+
+- There is no equivalent to the old `userInteractive` priority, which `is now exclusively reserved for the user interface`.
 
 
