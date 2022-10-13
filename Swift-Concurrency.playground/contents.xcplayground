@@ -15,5 +15,6 @@
         <page name='12-How to manipulate an AsyncSequence using map() filter() and more'/>
         <page name='13-How_to_create_a_custom_AsyncSequence'/>
         <page name='14-How to convert an AsyncSequence into a Sequence'/>
+        <page name='15-How to create and run a task'/>
     </pages>
 </playground>
