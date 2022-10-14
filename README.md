@@ -37,7 +37,8 @@
 - Task and TaskGroup
 
 * [What are tasks and task groups?](#What-are-tasks-and-task-groups)
-* [How to create and run a task](#How to create and run a task)
+* [How to create and run a task](#How-to-create-and-run-a-task)
+* [What is the difference between a task and a detached task?](#What-is-the-difference-between-a-task-and-a-detached-task)
 
 
 # Introduction
@@ -1843,4 +1844,195 @@ struct ContentView: View {
 - Best of all, we don’t have to care about this – we don’t need to know how the system is balancing the threads, or even that the threads exist, because Swift and SwiftUI take care of that for us. 
 
 - In fact, the concept of `tasks` is so thoroughly baked into SwiftUI that there’s a dedicated `task()` modifier that makes them even easier to use.
+
+
+## What is the difference between a task and a detached task?
+
+- If you create a new `task` using the regular `Task` initializer, your work starts running immediately and inherits the priority of the caller, any task local values, and its actor context. 
+
+- On the other hand, `detached tasks` also start work immediately, but do not inherit the priority or other information from the caller.
+
+- The Swift Evolution proposal for `async let`: “`Task.detached` most of the time should not be used at all.”, getting that out of the way up front so you don’t spend time learning about `detached tasks`, only to realize you probably shouldn’t use them!
+
+- Let’s dig in to our three differences: `priority`, `task local values`, and `actor isolation`.
+
+- The `priority` part is straightforward: `if you’re inside a user-initiated task and create a new task, it will also have a priority of user-initiated`, whereas `creating a new detached task would give a nil priority unless you specifically asked for something`.
+
+- `Task local values` allow us to `share a specific value everywhere inside one specific task` – they are like static properties on a type, except `rather than everything sharing that property, each task has its own value`.
+
+- `Detached tasks` do not inherit the task local values of their parent because they do not have a parent.
+
+- The `actor context` part is more important and more complex. When you `create a regular task from inside an actor it will be isolated to that actor`, which means `you can use other parts of the actor synchronously`:
+
+```swift
+actor User {
+
+    func login() {
+        Task {
+            if authenticate(user: "taytay89", password: "n3wy0rk") {
+                print("Successfully logged in.")
+            } else {
+                print("Sorry, something went wrong.")
+            }
+        }
+    }
+
+    func authenticate(user: String, password: String) -> Bool {
+        // Complicated logic here
+        return true
+    }
+}
+
+let user = User()
+await user.login()
+```
+
+- In comparison, a `detached task` `runs concurrently with all other code, including the actor that created it` – it effectively has no parent, and therefore `has greatly restricted access to the data inside the actor`.
+
+- So, if we were to rewrite the previous actor to use a `detached task`, it would need to call `authenticate()` like this:
+
+```swift
+actor User {
+
+    func login() {
+        Task.detached {
+            if await self.authenticate(user: "taytay89", password: "n3wy0rk") {
+                print("Successfully logged in.")
+            } else {
+                print("Sorry, something went wrong.")
+            }
+        }
+    }
+
+    func authenticate(user: String, password: String) -> Bool {
+        // Complicated logic here
+        return true
+    }
+}
+
+let user = User()
+await user.login()
+```
+
+- This distinction is particularly important when you are running on the `main actor`, which will be the case if you’re responding to a button click for example. 
+
+- The rules here might not be immediately obvious, so I want to show you some examples of what is allowed and what is not allowed, and more importantly explain why each is the case.
+
+- First, if you’re changing the value of an `@State` property, you can do so using a regular task like this:
+
+```swift
+struct ContentView: View {
+    @State private var name = "Anonymous"
+
+    var body: some View {
+        VStack {
+            Text("Hello, \(name)!")
+            Button("Authenticate") {
+                Task {
+                    name = "Taylor"
+                }
+            }
+        }
+    }
+}
+```
+
+- Note: The `Task` here is of course not needed because we’re just setting a local value; I’m just trying to illustrate how regular tasks and detached tasks are different.
+
+- In fact, because `@State` guarantees `it’s safe to change its value on any thread`, we can use a `detached task` instead even though it `won’t inherit actor isolation`:
+
+```swift
+struct ContentView: View {
+    @State private var name = "Anonymous"
+
+    var body: some View {
+        VStack {
+            Text("Hello, \(name)!")
+            Button("Authenticate") {
+                Task.detached {
+                    name = "Taylor"
+                }
+            }
+        }
+    }
+    
+}
+```
+
+- The rules change when we switch to an `observable object` that publishes changes. 
+
+- As soon as you add any `@ObservedObject` or `@StateObject` property wrappers to a view, `Swift will automatically infer that the whole view must also run on the main actor.`
+
+- This makes sense if you think about it: `changes published by observable objects must update the UI on the main thread`, and because any part of the view might try to adjust your object the only safe approach is for the whole view to run on the main actor.
+
+- So, this means `we can modify a view model` from inside a task created inside a SwiftUI view:
+
+```swift
+class ViewModel: ObservableObject {
+    @Published var name = "Hello"
+}
+
+struct ContentView: View {
+    @StateObject private var model = ViewModel()
+
+    var body: some View {
+        VStack {
+            Text("Hello, \(model.name)!")
+            Button("Authenticate") {
+                Task {
+                    model.name = "Taylor"
+                }
+            }
+        }
+    }
+}
+```
+
+- However, we cannot use `Task.detached` here – `Swift will throw up an error that a property isolated to global actor 'MainActor' can not be mutated from a non-isolated context`. 
+
+- In simpler terms, our `view model updates the UI and so must be on the main actor`, but our `detached task does not belong to that actor`.
+
+- At this point, you might wonder why detached tasks would have any use. Well, consider this code:
+
+```swift
+class ViewModel: ObservableObject { }
+
+struct ContentView: View {
+    @StateObject private var model = ViewModel()
+
+    var body: some View {
+        Button("Authenticate", action: doWork)
+    }
+
+    func doWork() {
+        Task {
+            for i in 1...10_000 {
+                print("In Task 1: \(i)")
+            }
+        }
+
+        Task {
+            for i in 1...10_000 {
+                print("In Task 2: \(i)")
+            }
+        }
+    }
+    
+}
+```
+
+- That’s the simplest piece of code that demonstrates the usefulness of `detached tasks`: `a SwiftUI view monitoring an empty view model`, plus a `button that launches a couple of tasks to print out text`.
+
+- When that runs, you’ll see `“In Task 1” printed 10,000 times`, then `“In Task 2” printed 10,000 times` – even though `we have created two tasks, they are executing sequentially`. 
+
+- This happens because our `@StateObject` `view model` `forces the entire view onto the main actor`, meaning that `it can only do one thing at a time`.
+
+- In contrast, if you change both `Task` initializers to `Task.detached`, you’ll see `“In Task 1” and “In Task 2” get intermingled as both execute at the same time`. 
+
+- Without any need for actor isolation, `Swift can run those tasks concurrently` – using a `detached task` has allowed us to shed our attachment to the main actor.
+
+- Although `detached tasks` do have very specific uses, generally I think `they should be your last port of call` – use them only if you’ve tried both a regular `task` and `async let`, and neither solved your problem.
+
+
+
 
