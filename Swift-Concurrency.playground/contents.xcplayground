@@ -16,5 +16,6 @@
         <page name='13-How_to_create_a_custom_AsyncSequence'/>
         <page name='14-How to convert an AsyncSequence into a Sequence'/>
         <page name='15-How to create and run a task'/>
+        <page name='16-What is the difference between a task and a detached task?'/>
     </pages>
 </playground>
