@@ -39,6 +39,7 @@
 * [What are tasks and task groups?](#What-are-tasks-and-task-groups)
 * [How to create and run a task](#How-to-create-and-run-a-task)
 * [What is the difference between a task and a detached task?](#What-is-the-difference-between-a-task-and-a-detached-task)
+* [How to get a Result from a task](#How-to-get-a-Result-from-a-task)
 
 
 # Introduction
@@ -2034,5 +2035,104 @@ struct ContentView: View {
 - Although `detached tasks` do have very specific uses, generally I think `they should be your last port of call` – use them only if you’ve tried both a regular `task` and `async let`, and neither solved your problem.
 
 
+## How to get a Result from a task
+
+- If you want to read the return value from a `Task` directly, you should read its `value` using `await`, or use `try await`å if it has a throwing operation.
+
+- However, all `tasks` also have a `result` property that returns an instance of Swift’s `Result` struct, generic over the type returned by the task as well as whether it might contain an error or not.
+
+- To demonstrate this, we could write some code that `creates a task to fetch and decode a string from a URL`. 
+
+- To start with we’re going to make this task throw errors if the download fails, or if the data can’t be converted to a string.
+
+```swift
+enum LoadError: Error {
+    case fetchFailed, decodeFailed
+}
+
+func fetchQuotes() async {
+
+    let downloadTask = Task { () -> String in
+        let url = URL(string: "https://hws.dev/quotes.txt")!
+        let data: Data
+
+        do {
+            (data, _) = try await URLSession.shared.data(from: url)
+        } catch {
+            throw LoadError.fetchFailed
+        }
+
+        if let string = String(data: data, encoding: .utf8) {
+            return string
+        } else {
+            throw LoadError.decodeFailed
+        }
+    }
+
+    let result = await downloadTask.result
+
+    do {
+        let string = try result.get()
+        print(string)
+    } catch LoadError.fetchFailed {
+        print("Unable to fetch the quotes.")
+    } catch LoadError.decodeFailed {
+        print("Unable to convert quotes to text.")
+    } catch {
+        print("Unknown error.")
+    }
+}
+
+await fetchQuotes()
+```
+
+- There’s not a lot of code there, but there are a few things I want to point out as being important:
+
+1- Our `task` might `return a string`, but also might `throw one of two errors`. So, when we ask for its `result` property we’ll be given a `Result<String, Error>`.
+
+2- Although we need to use `await` to get the `result`, `we don’t need to use try` even though there could be errors there. This is because we’re just reading out the result, not trying to read the successful value.
+
+3- We call `get()` on the `Result` object to read the successful, but that’s when `try` is needed because it’s when Swift checks whether an error occurred or not.
+
+4- When it comes to catching errors, we need a “catch everything” block at the end, even though we know we’ll only throw `LoadError`.
 
 
+- That last point hits us because Swift isn’t able to evaluate the task to see exactly what kinds of error are thrown inside, and there’s no way of adding that annotation ourself because Swift doesn’t support typed throws.
+
+- If you don’t care what errors are thrown, or don’t mind digging through Foundation’s various errors yourself, you can avoid handling errors in the task and just let them propagate up:
+
+```swift
+func fetchQuotes() async {
+
+    let downloadTask = Task { () -> String in
+        let url = URL(string: "https://hws.dev/quotes.txt")!
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    let result = await downloadTask.result
+
+    do {
+        let string = try result.get()
+        print(string)
+    } catch {
+        print("Unknown error.")
+    }
+}
+
+await fetchQuotes()
+```
+
+- The main take aways here are:
+
+1- All tasks can return a `Result` if you want.
+
+2- For the error type, the `Result` will either contain `Error` or `Never`.
+
+3- Although we need to use `await` to get the result, we don’t need to use `try` until we try to get the success value inside.
+
+- Many places where `Result` was useful are now better served through `async/await`, but `Result` is still `useful for storing in a single value the success or failure of some operation`.
+
+- In the code above we evaluate the result immediately for brevity, but the power of `Result` is that `it’s value you can pass around elsewhere in your code to deal with at a later time`.
+
+ 
