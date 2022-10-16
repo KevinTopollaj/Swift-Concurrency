@@ -2037,7 +2037,7 @@ struct ContentView: View {
 
 ## How to get a Result from a task
 
-- If you want to read the return value from a `Task` directly, you should read its `value` using `await`, or use `try await`å if it has a throwing operation.
+- If you want to read the return value from a `Task` directly, you should read its `value` using `await`, or use `try await` if it has a throwing operation.
 
 - However, all `tasks` also have a `result` property that returns an instance of Swift’s `Result` struct, generic over the type returned by the task as well as whether it might contain an error or not.
 
