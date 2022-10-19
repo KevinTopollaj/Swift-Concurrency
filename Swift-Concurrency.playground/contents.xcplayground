@@ -19,5 +19,6 @@
         <page name='16-What is the difference between a task and a detached task?'/>
         <page name='17-How to get a Result from a task'/>
         <page name='18-How to control the priority of a task'/>
+        <page name='19-How to cancel a Task'/>
     </pages>
 </playground>
