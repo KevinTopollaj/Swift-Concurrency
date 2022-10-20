@@ -92,5 +92,4 @@ Task {
 }
 
 // Now we have one implicit cancellation point with the data(from:) call, and an explicit one with the check on Task.isCancelled.
-
 // If either one is triggered, the task will return 0 rather than throw an error.
