@@ -45,7 +45,7 @@
 * [How to cancel a Task](#How-to-cancel-a-Task)
 * [How to make a task sleep](#How-to-make-a-task-sleep)
 * [How to voluntarily suspend a task](#How-to-voluntarily-suspend-a-task)
-* [How to create a task group and add tasks to it](How-to-create-a task-group-and-add-tasks-to-it)
+* [How to create a task group and add tasks to it](#How-to-create-a task-group-and-add-tasks-to-it)
 
 
 # Introduction
