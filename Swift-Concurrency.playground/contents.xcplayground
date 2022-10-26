@@ -21,5 +21,6 @@
         <page name='18-How to control the priority of a task'/>
         <page name='19-How to cancel a Task'/>
         <page name='20-How to voluntarily suspend a task'/>
+        <page name='21-How to create a task group and add tasks to it'/>
     </pages>
 </playground>
