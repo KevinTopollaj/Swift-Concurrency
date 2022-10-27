@@ -2655,7 +2655,7 @@ struct ContentView: View {
 
 1- If the parent task of the task group is cancelled.
 
-2- If you explicitly call cancelAll() on the group.
+2- If you explicitly call `cancelAll()` on the group.
 
 3- If one of your child tasks throws an uncaught error, all remaining tasks will be implicitly cancelled.
 
