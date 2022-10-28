@@ -106,7 +106,7 @@ struct ContentView: View {
 }
 
 
-//PlaygroundPage.current.setLiveView(ContentView())
+PlaygroundPage.current.setLiveView(ContentView())
 
 
 // The other way task groups get cancelled is if one of the tasks throws an uncaught error.
@@ -137,7 +137,7 @@ func testCancellation() async {
   }
 }
 
-Task {
-  await testCancellation()
-}
+//Task {
+//  await testCancellation()
+//}
 
