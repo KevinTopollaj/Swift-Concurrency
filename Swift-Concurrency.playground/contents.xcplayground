@@ -23,5 +23,6 @@
         <page name='20-How to voluntarily suspend a task'/>
         <page name='21-How to create a task group and add tasks to it'/>
         <page name='22-How to cancel a task group'/>
+        <page name='Create Continuations to convert completion handlers into async functions'/>
     </pages>
 </playground>
