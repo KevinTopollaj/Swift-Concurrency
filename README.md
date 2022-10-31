@@ -49,6 +49,8 @@
 * [How to cancel a task group](#How-to-cancel-a-task-group)
 * [How to handle different result types in a task group](#How-to-handle-different-result-types-in-a-task-group)
 * [What is the difference between async let tasks and task groups?](#What-is-the-difference-between-async-let-tasks-and-task-groups)
+* [How to make async command line tools and scripts](#How-to-make-async-command-line-tools-and-scripts)
+
 
 # Introduction
 
@@ -3022,3 +3024,37 @@ await loadUser()
 3- If I need to be able to cancel tasks, `Task` is similar enough to `async let` that it’s easy to move across to `Task` without going all the way to a `task group`.
 
 - I would recommend you start with `async let`, move to `Task` if needed, then go to `task groups` only if there’s something specific they offer that you need.
+
+
+## How to make async command-line tools and scripts
+
+- If you’re writing a command-line tool, you can use `async` in conjunction with the `@main` attribute to launch your app into an async context immediately. 
+
+- To do this, first create the static `main()` method as you normally would with `@main`, then add `async` to it.
+
+- You can optionally also add `throws` if you don’t intend to handle errors there.
+
+- For example, we could write a small command-line tool that fetches data from a URL and prints it out:
+
+```swift
+@main
+struct UserFetcher {
+    static func main() async throws {
+        let url = URL(string: "https://hws.dev/users.csv")!
+
+        for try await line in url.lines {
+            print("Received user: \(line)")
+        }
+    }
+}
+```
+
+- `Tip:` Just like using the `@main` attribute with a synchronous `main()` method, you should not include a `main.swift` file in your command-line project.
+
+- Using `async` and `@main` together benefits from the full range of Swift concurrency features. 
+
+- Behind the scenes, Swift will automatically create a new task in which it runs your `main()` method, then terminate the program when that task finishes.
+
+- Although it doesn’t work in the current Xcode release, the `goal is for Swift to support async calls in top-level code`. 
+
+- This would mean you could use `main.swift` files and remove most of the code in the previous sample – you could just go ahead and make async calls outside of a function.
