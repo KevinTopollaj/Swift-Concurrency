@@ -52,7 +52,7 @@
 * [How to make async command line tools and scripts](#How-to-make-async-command-line-tools-and-scripts)
 * [How to create and use task local values](#How-to-create-and-use-task-local-values)
 * [How to run tasks using SwiftUI task modifier](#How-to-run-tasks-using-SwiftUI-task-modifier)
-
+* [Is it efficient to create many tasks](#Is-it-efficient-to-create-many-tasks)
 
 # Introduction
 
@@ -3433,3 +3433,20 @@ struct DetailView: View {
 - Tip: The `task()` modifier accepts a `priority` parameter if you want fine-grained control over your task’s priority. 
 
 - For example, use `.task(priority: .low)` to create a low-priority task.
+
+
+## Is it efficient to create many tasks
+
+- Previously we talked about the concept of `thread explosion`, which is `when you create many more threads than CPU cores and the system struggles to manage them effectively`.
+
+- However, Swift’s `tasks are implemented very differently from threads`, and so are significantly less likely to cause performance problems when used in large numbers. 
+
+- In fact one of the Swift team who worked on it said that unless you’re creating over 10,000 tasks it’s not worth worrying about the impact of so many tasks.
+
+- That doesn’t mean creating so many tasks is necessarily the best idea.
+
+- You might think that’s hard to do, but a task group calling `addTask()` inside a loop might create several hundred or even several thousand depending on what you were looping over.
+
+- And that’s okay. Again, even if you’re creating well over 10,000 tasks it’s not likely to cause a problem as long as you know that’s what you’re doing – if that’s the architectural choice you’re making after evaluating the alternative.
+
+- So, broadly speaking you should feel free to create as many tasks as you want, but if you ever find yourself creating tasks to transform elements inside huge arrays you might want to double-check your performance using something like Instruments.
