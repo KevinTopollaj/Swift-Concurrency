@@ -24,5 +24,6 @@
         <page name='21-How to create a task group and add tasks to it'/>
         <page name='22-How to cancel a task group'/>
         <page name='23-How to handle different result types in a task group'/>
+        <page name='24-How to run tasks using SwiftUI task modifier'/>
     </pages>
 </playground>
