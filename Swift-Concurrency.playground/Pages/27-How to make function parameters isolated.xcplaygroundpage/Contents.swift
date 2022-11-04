@@ -1,7 +1,29 @@
-//: [Previous](@previous)
+import UIKit
 
-import Foundation
+actor DataStore {
+  var username = "Anonymous"
+  var friends = [String]()
+  var highScores = [Int]()
+  var favorites = Set<Int>()
 
-var greeting = "Hello, playground"
+  init() {
+    //load data
+  }
+  
+  func save() {
+    // save data
+  }
+  
+}
 
-//: [Next](@next)
+func debugLog(dataStore: isolated DataStore) {
+    print("Username: \(dataStore.username)")
+    print("Friends: \(dataStore.friends)")
+    print("High scores: \(dataStore.highScores)")
+    print("Favorites: \(dataStore.favorites)")
+}
+
+Task {
+  let dataStore = DataStore()
+  await debugLog(dataStore: dataStore)
+}

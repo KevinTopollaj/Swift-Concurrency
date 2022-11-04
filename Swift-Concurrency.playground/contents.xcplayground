@@ -26,5 +26,7 @@
         <page name='23-How to handle different result types in a task group'/>
         <page name='24-How to run tasks using SwiftUI task modifier'/>
         <page name='25-What is an actor and why does Swift have them'/>
+        <page name='26-How to create and use an actor in Swift'/>
+        <page name='27-How to make function parameters isolated'/>
     </pages>
 </playground>
