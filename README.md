@@ -3802,7 +3802,7 @@ print(user.passwordHash())
 
 2. We can also use `nonisolated` with computed properties, which in the previous example would have made `nonisolated var passwordHash: String`. Stored properties may not be non-isolated.
 
-3- Non-isolated properties and methods can access only other non-isolated properties and methods, which in our case is a constant property. Swift will not let you ignore this rule.
+3. Non-isolated properties and methods can access only other non-isolated properties and methods, which in our case is a constant property. Swift will not let you ignore this rule.
 
 
 - Non-isolated methods are particularly useful when dealing with protocol conformances such as `Hashable` and `Codable`, where we must implement methods to be run from outside the actor.
