@@ -61,7 +61,7 @@
 * [How to make function parameters isolated](#How-to-make-function-parameters-isolated)
 * [How to make parts of an actor nonisolated](#How-to-make-parts-of-an-actor-nonisolated)
 * [How to use MainActor to run code on the main queue](#How-to-use-MainActor-to-run-code-on-the-main-queue)
-
+* [Understanding how global actor inference works](#Understanding-how-global-actor-inference-works)
 
 # Introduction
 
@@ -3983,3 +3983,85 @@ couldBeAnywhere()
 - However, the inner `Task` will not run immediately, so the code will print `1, 2, 4, 5, 3`.
 
 - Although it’s possible to create your own global actors, I think we should probably avoid doing so until we’ve had sufficient chance to build apps using what we already have.
+
+
+## Understanding how global actor inference works
+
+- Apple explicitly annotates many of its types as being `@MainActor`, including most `UIKit` types such as `UIView` and `UIButton`.
+
+- However, there are many places where types gain main-actor-ness implicitly through a `process called global actor inference` – Swift applies `@MainActor` automatically based on a set of predetermined rules.
+
+- There are five rules for global actor inference, and I want to tackle them individually because although they start easy they get more complex.
+
+1- First, if a class is marked `@MainActor`, all its subclasses are also automatically `@MainActor`. This follows the principle of least surprise: `if you inherit from a @MainActor class it makes sense that your subclass is also @MainActor`.
+
+2- Second, if a method in a class is marked `@MainActor`, any overrides for that method are also automatically `@MainActor`. Again, this is a natural thing to expect – `you overrode a @MainActor method, so the only safe way Swift can call that override is if it’s also @MainActor`.
+
+3- Third, any struct or class using a property wrapper with `@MainActor` for its wrapped value will automatically be `@MainActor`. This is what makes `@StateObject` and `@ObservedObject` convey main-actor-ness on SwiftUI views that use them – `if you use either of those two property wrappers in a SwiftUI view, the whole view becomes @MainActor` too.
+
+4- If a protocol declares a method as being `@MainActor`, any type that conforms to that protocol will have that same method automatically be `@MainActor` unless you separate the conformance from the method.
+
+- What this means is that if you make a type conform to a protocol with a `@MainActor` method, and add the required method implementation at the same time, it is implicitly `@MainActor`. 
+
+- However, if `you separate the conformance and the method implementation`, you need to add `@MainActor` by hand.
+
+```swift
+// A protocol with a single `@MainActor` method.
+protocol DataStoring {
+    @MainActor func save()
+}
+
+// A struct that does not conform to the protocol.
+struct DataStore1 { }
+
+// When we make it conform and add save() at the same time, our method is implicitly @MainActor.
+extension DataStore1: DataStoring {
+    func save() { } // This is automatically @MainActor.
+}
+
+// A struct that conforms to the protocol.
+struct DataStore2: DataStoring { }
+
+// If we later add the save() method, it will *not* be implicitly @MainActor so we need to mark it as such ourselves.
+extension DataStore2 {
+    @MainActor func save() { }
+}
+```
+
+- As you can see, we need to explicitly use `@MainActor func save()` in `DataStore2` because the global actor inference does not apply there. 
+
+- Don’t worry about forgetting it, though – Xcode will automatically check the annotation is there, and offer to add `@MainActor` if it’s missing.
+
+5- If the whole protocol is marked with `@MainActor`, any type that conforms to that protocol will also automatically be `@MainActor` unless you put the conformance separately from the main type declaration, in which case `only the methods are @MainActor`.
+
+```swift
+// A protocol marked as @MainActor.
+@MainActor protocol DataStoring {
+    func save()
+}
+
+// A struct that conforms to DataStoring as part of its primary type definition.
+struct DataStore1: DataStoring { // This struct is automatically @MainActor.
+    func save() { } // This method is automatically @MainActor.
+}
+
+// Another struct that conforms to DataStoring as part of its primary type definition.
+struct DataStore2: DataStoring { } // This struct is automatically @MainActor.
+
+// The method is provided in an extension, but it's the same as if it were in the primary type definition.
+extension DataStore2 {
+    func save() { } // This method is automatically @MainActor.
+}
+
+// A third struct that does *not* conform to DataStoring in its primary type definition.
+struct DataStore3 { } // This struct is not @MainActor.
+
+// The conformance is added as an extension
+extension DataStore3: DataStoring {
+    func save() { } // This method is automatically @MainActor.
+}
+```
+
+- If conformance to a `@MainActor` protocol retroactively made the whole of Apple’s type `@MainActor` then you would have dramatically altered the way it worked, probably breaking all sorts of assumptions made elsewhere in the system.
+
+- If it’s your type – a type you’re creating from scratch in your own code – then you can add the protocol conformance as you make the type and therefore isolate the entire type to `@MainActor`, because it’s your choice.
