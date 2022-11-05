@@ -65,6 +65,7 @@
 * [What is actor hopping and how can it cause problems?](#What-is-actor-hopping-and-how-can-it-cause-problems)
 * [What is the difference between actors classes and structs?](#What-is-the-difference-between-actors-classes-and-structs)
 * [Do not use an actor for your SwiftUI data models](#Do-not-use-an-actor-for-your-SwiftUI-data-models)
+* [How to download JSON from the internet and decode it into any Codable type](#How-to-download-JSON-from-the-internet-and-decode-it-into-any-Codable-type)
 
 
 # Introduction
@@ -4316,3 +4317,87 @@ struct ContentView: View {
 - The correct solution here is to use a class that conforms to `ObservableObject`, then annotate it with `@MainActor` to `ensure it does any UI work safely`.
 
 - If you still find that `you need to be able to carve off some async work safely`, you can create a `sibling actor` – `a separate actor that does not use @MainActor`, but `does not directly update the UI`.
+
+
+## How to download JSON from the internet and decode it into any Codable type
+
+- Fetching JSON from the network and using `Codable` to convert it into native Swift objects is probably the most common task for any Swift developer, usually followed by displaying that data in a `List` or `UITableView` depending on whether they are using `SwiftUI` or `UIKit`.
+
+- Well, using Swift’s `concurrency` features we can write a small but beautiful `extension for URLSession` that makes such work just a single line of code – you just tell iOS what data type to expect and the URL to fetch, and it will do the rest.
+
+- To add some extra flexibility, we can also provide options to customize decoding strategies for keys, data, and dates, providing sensible defaults for each one to keep our call sites clear for the most common usages.
+
+```swift
+extension URLSession {
+    func decode<T: Decodable>(
+        _ type: T.Type = T.self,
+        from url: URL,
+        keyDecodingStrategy: JSONDecoder.KeyDecodingStrategy = .useDefaultKeys,
+        dataDecodingStrategy: JSONDecoder.DataDecodingStrategy = .deferredToData,
+        dateDecodingStrategy: JSONDecoder.DateDecodingStrategy = .deferredToDate
+    ) async throws  -> T {
+    
+        let (data, _) = try await data(from: url)
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = keyDecodingStrategy
+        decoder.dataDecodingStrategy = dataDecodingStrategy
+        decoder.dateDecodingStrategy = dateDecodingStrategy
+
+        let decoded = try decoder.decode(T.self, from: data)
+        return decoded
+    }
+}
+```
+
+- That does several things:
+
+1. It’s an extension on `URLSession`, so you can go ahead and create your own custom session with a unique configuration if needed.
+
+2. It uses generics, so that it will work with anything that conforms to the `Decodable` protocol – that’s half of `Codable`, so if you use `Codable` it will work there too.
+
+3. It uses `T.self` for the default data type, so if Swift can infer your type then you don’t need to repeat yourself.
+
+4. It `allows all errors to propane to your call site`, so you can `handle networking and/or decoding errors` as needed.
+
+- To use the extension in your own code, first define a type you want to work with, then go ahead and call `decode()` in whichever way you need:
+
+```swift
+struct User: Codable {
+    let id: UUID
+    let name: String
+    let age: Int
+}
+
+struct Message: Codable {
+    let id: Int
+    let user: String
+    let text: String
+}
+
+do {
+    // Fetch and decode a specific type
+    let url1 = URL(string: "https://hws.dev/user-24601.json")!
+    let user = try await URLSession.shared.decode(User.self, from: url1)
+    print("Downloaded \(user.name)")
+
+    // Infer the type because Swift has a type annotation
+    let url2 = URL(string: "https://hws.dev/inbox.json")!
+    let messages: [Message] = try await URLSession.shared.decode(from: url2)
+    print("Downloaded \(messages.count) messages")
+
+    // Create a custom URLSession and decode a Double array from that
+    let config = URLSessionConfiguration.default
+    config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+    let session = URLSession(configuration: config)
+
+    let url3 = URL(string: "https://hws.dev/readings.json")!
+    let readings = try await session.decode([Double].self, from: url3)
+    print("Downloaded \(readings.count) readings")
+} catch {
+    print("Download error: \(error.localizedDescription)")
+}
+```
+
+- As you can see, with that small extension in place it becomes trivial to fetch and decode any type of `Codable` data with just one line of Swift.
+
