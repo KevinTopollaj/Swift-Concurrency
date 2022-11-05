@@ -63,6 +63,7 @@
 * [How to use MainActor to run code on the main queue](#How-to-use-MainActor-to-run-code-on-the-main-queue)
 * [Understanding how global actor inference works](#Understanding-how-global-actor-inference-works)
 * [What is actor hopping and how can it cause problems?](#What-is-actor-hopping-and-how-can-it-cause-problems)
+* [What is the difference between actors classes and structs?](#What-is-the-difference-between-actors-classes-and-structs)
 
 
 # Introduction
@@ -4210,3 +4211,88 @@ struct ContentView: View {
 ```
 
 - Notice how the SwiftUI view is identical – we’re just rearranging our internal data access to be more efficient.
+
+
+## What is the difference between actors classes and structs?
+
+- Swift provides `four concrete nominal types for defining custom objects`: `actors`, `classes`, `structs`, and `enums`.
+
+- `Tip`: Ultimately, which you use depends on the exact context you’re working in, and you will need them all at some point.
+
+- Actors:
+
+1. Are `reference types`, so are good for `shared mutable state`.
+
+2. Can have properties, methods, initializers, and subscripts.
+
+3. Do not support inheritance.
+
+4. Automatically conform to the `Actor` protocol.
+
+5. Automatically conform to the `AnyObject` protocol, and can therefore conform to `Identifiable` without adding an explicit `id` property.
+
+6. Can have a deinitializer.
+
+7. Cannot have their public properties and methods directly accessed externally, we must use `await`.
+
+8. Can `execute only one method at a time`, regardless of how they are accessed.
+
+
+- Classes:
+
+1. Are reference types, so are good for shared mutable state.
+
+2. Can have properties, methods, initializers, and subscripts.
+
+3. Support inheritance.
+
+4. Cannot conform to the `Actor` protocol.
+
+5. Automatically conform to the `AnyObject` protocol, and can therefore conform to `Identifiable` without adding an explicit `id` property.
+
+6. Can have a deinitializer.
+
+7. Can have their public properties and methods directly accessed externally.
+
+8. Can potentially be executing severals methods at a time.
+
+
+- Structs:
+
+1. Are value types, so are copied rather than shared.
+
+2. Can have properties, methods, initializers, and subscripts.
+
+3. Do not support inheritance.
+
+4. Cannot conform to the `Actor` protocol.
+
+5. Cannot conform to the `AnyObject` protocol; if you want to add `Identifiable` conformance you must add an `id` property yourself.
+
+6. Cannot have a deinitializer.
+
+7. Can have their public properties and methods directly accessed externally.
+
+8. Can potentially be executing severals methods at a time.
+
+- You might think the advantages of actors are such that they should be used everywhere classes are currently used, but `that is a bad idea`.
+
+- Not only do you `lose the ability for inheritance`, but you’ll also cause a huge amount of pain for yourself because `every single external property access needs to use await`.
+
+- However, there are certainly places where actors are a natural fit.
+
+- If you were previously creating serial queues to handle specific workflows, they can be replaced almost entirely with `actors` – while also benefiting from increased safety and performance.
+
+- So, `if you have some work that absolutely must work one at a time`, `such as accessing a database`, then `try converting it into something like a database actor`.
+
+- There is `one area in particular where using actors rather than classes is going to cause problems`:
+
+- `Do not use actors for your SwiftUI data models`.
+
+- You should use a `class` that conforms to the `ObservableObject` protocol instead.
+
+- If needed, you can optionally also mark that `class` with `@MainActor` to ensure it `does any UI work safely`, but keep in mind that using `@StateObject` or `@ObservedObject` automatically `makes a view’s code run on the main actor`.
+
+- If you desperately need to be able to `carve off some async work safely`, you can `create a sibling actor` – a `separate actor that does not use @MainActor`, but `does not directly update the UI`.
+
+
