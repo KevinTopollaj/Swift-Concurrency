@@ -31,5 +31,6 @@
         <page name='28-How to make parts of an actor nonisolated'/>
         <page name='29-What is actor hopping and how can it cause problems?'/>
         <page name='30-How to download JSON from the internet and decode it into any Codable type'/>
+        <page name='Create Continuations that can throw errors'/>
     </pages>
 </playground>
